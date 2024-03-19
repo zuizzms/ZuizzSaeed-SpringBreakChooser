@@ -29,6 +29,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private var selectedLanguage: String? = null
     private var lastShakeTime: Long = 0
 
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -124,29 +126,54 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     }
 
     private val shakeDetector = ShakeDetector(this)
+    private val mapLocationLanguages = mapOf(
+        // English takes you to New York
+        "English" to "geo: 40.7128, 74.0060",
 
+        // Spanish takes you to Cancun, Mexico
+        "Spanish" to "geo:21.1619,-86.8515",
+
+        // French takes you to Paris, France
+        "French" to "geo:48.8566,2.3522",
+
+        // Chinese takes you to Beijing, China
+        "Chinese" to "geo:39.9042,116.4074"
+
+    )
     private inner class ShakeDetector(private val context: Context) : SensorEventListener {
 
         private val threshold = 500 // Adjust this value as needed
         private val timeThreshold = 500 // Adjust this value as needed
         private var lastShake: Long = 0
+        private var axisLastX: Float = 0.0f
+        private var axisLastY: Float = 0.0f
+        private var axisLastZ: Float = 0.0f
 
         override fun onSensorChanged(event: SensorEvent) {
-            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            val currentTime = System.currentTimeMillis()
+            if ((currentTime - lastShake) > 100) {
+                val diffTime = (currentTime - lastShake).toFloat()
+                lastShake = currentTime
+
                 val x = event.values[0]
                 val y = event.values[1]
                 val z = event.values[2]
 
-                val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
-                val now = System.currentTimeMillis()
+                val speed = Math.abs(x + y + z - axisLastX - axisLastY - axisLastZ) / diffTime * 10000
 
-                if (acceleration > threshold) {
-                    if (now - lastShake >= timeThreshold) {
-                        lastShake = now
-                        // Launch Google Maps with vacation spot location
-                        launchGoogleMaps()
+                if (speed > threshold) {
+                    selectedLanguage?.let {
+                        mapLocationLanguages[it]?.also { uri ->
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                            startActivity(intent)
+
+                        }
                     }
                 }
+
+                axisLastX = x
+                axisLastY = y
+                axisLastZ = z
             }
         }
 
@@ -164,7 +191,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
 
         private fun launchGoogleMaps() {
-            val locationUri = "geo:21.1619,-86.8515"
+            val locationUri = "geo:40.7128, 74.0060"
             val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(locationUri))
             startActivity(mapIntent)
         }

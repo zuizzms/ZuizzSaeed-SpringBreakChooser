@@ -20,8 +20,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
-import com.google.android.gms.maps.model.LatLng
-
 
 class MainActivity : AppCompatActivity(), RecognitionListener {
 
@@ -129,8 +127,8 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private inner class ShakeDetector(private val context: Context) : SensorEventListener {
 
-        private val threshold = 1000 // Adjust this value as needed
-        private val timeThreshold = 1000 // Adjust this value as needed
+        private val threshold = 500 // Adjust this value as needed
+        private val timeThreshold = 500 // Adjust this value as needed
         private var lastShake: Long = 0
 
         override fun onSensorChanged(event: SensorEvent) {
@@ -166,26 +164,13 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
 
         private fun launchGoogleMaps() {
-            val vacationSpot = getVacationSpot(selectedLanguage)
-            val locationUri = "geo:${vacationSpot.latitude},${vacationSpot.longitude}"
+            val locationUri = "geo:21.1619,-86.8515"
             val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(locationUri))
             startActivity(mapIntent)
         }
-
-        private fun getVacationSpot(language: String?): LatLng {
-            // Implement logic to determine vacation spot based on language
-            return when (language) {
-                "Spanish" -> LatLng(40.4168, -3.7038) // Madrid, Spain
-                "French" -> LatLng(48.8566, 2.3522)  // Paris, France
-                "Chinese" -> LatLng(39.9042, 116.4074) // Beijing, China
-                else -> LatLng(0.0, 0.0) // Default location
-            }
-        }
     }
-
 
     companion object {
         private const val REQUEST_CODE_SPEECH_INPUT = 100
     }
 }
-

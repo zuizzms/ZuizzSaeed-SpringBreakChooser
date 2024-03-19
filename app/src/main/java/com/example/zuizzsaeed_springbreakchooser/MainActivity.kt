@@ -20,6 +20,8 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.net.Uri
+import android.media.MediaPlayer
+
 
 class MainActivity : AppCompatActivity(), RecognitionListener {
 
@@ -127,18 +129,10 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private val shakeDetector = ShakeDetector(this)
     private val mapLocationLanguages = mapOf(
-        // English takes you to New York
-        "English" to "geo: 40.7128, 74.0060",
-
-        // Spanish takes you to Cancun, Mexico
-        "Spanish" to "geo:21.1619,-86.8515",
-
-        // French takes you to Paris, France
-        "French" to "geo:48.8566,2.3522",
-
-        // Chinese takes you to Beijing, China
-        "Chinese" to "geo:39.9042,116.4074"
-
+        "English" to listOf("geo:40.7128,-74.0060", "geo:51.5074,-0.1278"), // New York, London
+        "Spanish" to listOf("geo:21.1619,-86.8515", "geo:40.4168,-3.7038"), // Cancun, Madrid
+        "French" to listOf("geo:48.8566,2.3522", "geo:45.5017,-73.5673"), // Paris, Montreal
+        "Chinese" to listOf("geo:39.9042,116.4074", "geo:25.0330,121.5654") // Beijing, Taiwan
     )
     private inner class ShakeDetector(private val context: Context) : SensorEventListener {
 
@@ -162,11 +156,11 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 val speed = Math.abs(x + y + z - axisLastX - axisLastY - axisLastZ) / diffTime * 10000
 
                 if (speed > threshold) {
-                    selectedLanguage?.let {
-                        mapLocationLanguages[it]?.also { uri ->
+                    selectedLanguage?.let { language ->
+                        mapLocationLanguages[language]?.random()?.also { uri ->
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
                             startActivity(intent)
-
+                            playGreeting(language)
                         }
                     }
                 }
@@ -190,14 +184,42 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             sensorManager.unregisterListener(this)
         }
 
+
         private fun launchGoogleMaps() {
-            val locationUri = "geo:40.7128, 74.0060"
-            val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(locationUri))
-            startActivity(mapIntent)
+            selectedLanguage?.let { language ->
+                mapLocationLanguages[language]?.random()?.also { uri ->
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+                    startActivity(intent)
+                    playGreeting(language)
+                }
+            }
         }
+
+        private fun playGreeting(languageCode: String?) {
+            val resourceId = when (languageCode) {
+                "English" -> R.raw.english_hello
+                "Spanish" -> R.raw.spanish_hello
+                "French" -> R.raw.french_hello
+                "Chinese" -> R.raw.chinese_hello
+                else -> null
+            }
+
+            resourceId?.let {
+                val mediaPlayer = MediaPlayer.create(context, it)
+                mediaPlayer.start()
+                mediaPlayer.setOnCompletionListener { mp ->
+                    mp.release()
+                }
+            }
+        }
+
+
+
     }
 
     companion object {
         private const val REQUEST_CODE_SPEECH_INPUT = 100
     }
+
+
 }

@@ -2,8 +2,8 @@ package com.example.zuizzsaeed_springbreakchooser
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.speech.RecognizerIntent
 import android.os.Bundle
+import android.speech.RecognizerIntent
 import android.speech.RecognitionListener
 import android.speech.SpeechRecognizer
 import android.view.View
@@ -13,12 +13,23 @@ import android.widget.EditText
 import android.widget.Spinner
 import androidx.appcompat.app.AppCompatActivity
 import java.util.*
+import android.view.ContextThemeWrapper
+import android.content.Context
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.net.Uri
+import com.google.android.gms.maps.model.LatLng
+
 
 class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private lateinit var languageSpinner: Spinner
     private lateinit var speechRecognizer: SpeechRecognizer
     private lateinit var editText: EditText
+    private var selectedLanguage: String? = null
+    private var lastShakeTime: Long = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,6 +54,9 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         // Set up a listener for Spinner selection
         languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                // Store the selected language
+                selectedLanguage = languages[position]
+
                 // Prompt the user to speak a phrase in the selected language
                 startSpeechRecognition()
             }
@@ -58,23 +72,25 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     }
 
     private fun startSpeechRecognition() {
-        val language = when (languageSpinner.selectedItemPosition) {
-            0 -> Locale.ENGLISH
-            1 -> Locale("es", "ES") // Spanish
-            2 -> Locale.FRENCH
-            3 -> Locale.CHINESE
-            else -> Locale.getDefault()
-        }
+        selectedLanguage?.let { language ->
+            val locale = when (language) {
+                "English" -> Locale.ENGLISH
+                "Spanish" -> Locale("es", "ES")
+                "French" -> Locale.FRENCH
+                "Chinese" -> Locale.CHINESE
+                else -> Locale.getDefault()
+            }
 
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, language)
-        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Please say a phrase in ${language.displayLanguage}")
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale)
+            intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Please say a phrase in ${locale.displayLanguage}")
 
-        try {
-            startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT)
-        } catch (e: ActivityNotFoundException) {
-            // Show error message or handle the case where speech recognition is not supported
+            try {
+                startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT)
+            } catch (e: ActivityNotFoundException) {
+                // Show error message or handle the case where speech recognition is not supported
+            }
         }
     }
 
@@ -97,7 +113,79 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     override fun onError(error: Int) {}
     override fun onResults(results: Bundle?) {}
 
+    override fun onResume() {
+        super.onResume()
+        // Register the sensor listener onResume
+        shakeDetector.start()
+    }
+
+    override fun onPause() {
+        // Unregister the sensor listener onPause
+        shakeDetector.stop()
+        super.onPause()
+    }
+
+    private val shakeDetector = ShakeDetector(this)
+
+    private inner class ShakeDetector(private val context: Context) : SensorEventListener {
+
+        private val threshold = 1000 // Adjust this value as needed
+        private val timeThreshold = 1000 // Adjust this value as needed
+        private var lastShake: Long = 0
+
+        override fun onSensorChanged(event: SensorEvent) {
+            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                val x = event.values[0]
+                val y = event.values[1]
+                val z = event.values[2]
+
+                val acceleration = Math.sqrt((x * x + y * y + z * z).toDouble()) - SensorManager.GRAVITY_EARTH
+                val now = System.currentTimeMillis()
+
+                if (acceleration > threshold) {
+                    if (now - lastShake >= timeThreshold) {
+                        lastShake = now
+                        // Launch Google Maps with vacation spot location
+                        launchGoogleMaps()
+                    }
+                }
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+
+        fun start() {
+            val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+            sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+        }
+
+        fun stop() {
+            val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+            sensorManager.unregisterListener(this)
+        }
+
+        private fun launchGoogleMaps() {
+            val vacationSpot = getVacationSpot(selectedLanguage)
+            val locationUri = "geo:${vacationSpot.latitude},${vacationSpot.longitude}"
+            val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse(locationUri))
+            startActivity(mapIntent)
+        }
+
+        private fun getVacationSpot(language: String?): LatLng {
+            // Implement logic to determine vacation spot based on language
+            return when (language) {
+                "Spanish" -> LatLng(40.4168, -3.7038) // Madrid, Spain
+                "French" -> LatLng(48.8566, 2.3522)  // Paris, France
+                "Chinese" -> LatLng(39.9042, 116.4074) // Beijing, China
+                else -> LatLng(0.0, 0.0) // Default location
+            }
+        }
+    }
+
+
     companion object {
         private const val REQUEST_CODE_SPEECH_INPUT = 100
     }
 }
+
